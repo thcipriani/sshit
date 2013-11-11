@@ -2,17 +2,21 @@
 
 help () {
     cat << HELP
-USAGE: $0 [OPTIONS]..
+USAGE: $(basename $0) [OPTIONS]..
 
 OPTIONS:
+              --open|-o   opens your .ssh/config file with your \$EDITOR. OVERRIDES other commands
               --list|-l   dumps your ssh file to stdout. OVERRIDES other commands
-              --name|-n   ssh name (required) the alias for the ssh command
-              --host|-h   hostname (required)
-              --user|-u   username (optional) for remote host. 
+
+              --name|-n   Config name (required) the alias for the ssh command
+              --host|-h   Hostname (required)
+              --user|-u   Username (optional) for remote host. 
                           If not provided then current user is assumed
-              --port|-p   port (optional) port 22 assumed
-          --identity|-i   identityfile (optional)
-     --local-forward|-c   Local forward (optional)
+              --port|-p   Port (optional) port 22 assumed
+          --identity|-i   Identityfile (optional)
+               --x11|-x   Forward X11
+     --local-command|-c   LocalCommand Execute localcommand when connecting
+     --local-forward|-f   Local forward (optional)
                           in the format: 3601:localhost:3601 (remote:host:local)
                           Supports multiple additions
     --remote-forward|-r   Remote forward (optional)
@@ -22,16 +26,28 @@ HELP
 }
 
 error () {
-    printf "$(tput setab 1; tput setaf 7; tput bold)[!] %b$(tput sgr0)\n" "$@" 1>&2
+    printf "$(tput setab 1; tput setaf 7)[!] %b$(tput sgr0)\n" "$@" 1>&2
 }
 
 success() {
-    printf "$(tput setab 2; tput setaf 7; tput bold)☻ Your new ssh config is ready to rock!\n$(tput sgr0)"
+    printf "$(tput setab 2; tput setaf 7)☺ Your new ssh config is ready to rock!\n$(tput sgr0)"
+}
+
+open_it() {
+    $EDITOR "$config_file"
+    exit 0
 }
 
 dump_it() {
     printf "\n%b\n\n" "$(cat $config_file)"
     exit 0
+}
+
+check_host_file() {
+    if [ ! -f "$config_file" ]; then
+        touch "$config_file" > /dev/null
+        chmod 700 "$config_file" > /dev/null
+    fi
 }
 
 make_host() {
@@ -48,16 +64,26 @@ make_host() {
         port=22
     fi
 
-    if [ $(grep -cE "^host $name$" "$config_file") -gt 0 ]; then
+    check_host_file
+
+    if [ $(grep -ciE "^host $name$" "$config_file") -gt 0 ]; then
         error "host $name already exists in $config_file - not creating"
         exit 1
     fi
 
     line="\n\nhost $name\n\thostname $host\n\tuser $user\n\tport $port\n"
 
+    if [ ! -z $xeleven ] && [ $xeleven -eq 1 ]; then
+        line="${line}\tForwardX11 yes\n"
+    fi
+
+    if [ ! -z "$local_command" ]; then
+        line="${line}\tLocalCommand $local_command\n"
+    fi
+
     if [ ! -z $identity ]; then
-        if [ -f "$identity" ]; then
-            line="${line}$identity\n"
+        if [ -f "$identity" ] || [ -f "$HOME/.ssh/$identity" ]; then
+            line="${line}IdentityFile $identity\n"
         else
             error "Identity file $identity not found"
             exit 1
@@ -126,6 +152,11 @@ parse_args () {
                 shift
                 ;;
 
+            --open|-o )
+                open=1
+                shift
+                ;;
+
             --name|-n )
                 shift
                 check_arg "$1" "--name"
@@ -154,38 +185,55 @@ parse_args () {
                 shift
                 ;;
 
-        --identity|-i )
+            --identity|-i )
                 shift
                 check_arg "$1" "--identity"
                 identity="$1"
                 shift
                 ;;
 
-        --local-forward|-c )
+            --x11|-x )
+                xeleven=1
+                shift
+                ;;
+
+            --local-command|-c )
+                shift
+                check_arg "$1" "--local-command"
+                local_command="$1"
+                shift
+                ;;
+
+
+            --local-forward|-f )
                 shift
                 check_arg "$1" "--local-forward"
                 local_forwards=("${local_forwards[@]}" "$1")
                 shift
                 ;;
 
-        --remote-forward|-r )
+            --remote-forward|-r )
                 shift
                 check_arg "$1" "--remote-forward"
                 remote_forwards=("${remote_forwards[@]}" "$1")
                 shift
                 ;;
 
-        * )
-            if [ -z "$1" ]; then
-                continue
-            fi
+            * )
+                if [ -z "$1" ]; then
+                    continue
+                fi
 
-            error "$1 not recognized as a command"
-            exit 1
-            ;;
+                error "$1 not recognized as a command"
+                exit 1
+                ;;
 
         esac
     done
+
+    if [ ! -z $open ] && [ $open -eq 1 ]; then
+        open_it
+    fi
 
     if [ ! -z $list ] && [ $list -eq 1 ]; then
         dump_it

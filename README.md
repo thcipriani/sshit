@@ -7,7 +7,7 @@ A quick way to manage `.ssh/config`
     $ sshit [OPTIONS]..
 
 ## Options
-    ```
+
               --list|-l   dumps your ssh file to stdout. OVERRIDES other commands
               --name|-n   ssh name (required) the alias for the ssh command
               --host|-h   hostname (required)
@@ -21,4 +21,7 @@ A quick way to manage `.ssh/config`
     --remote-forward|-r   Remote forward (optional)
                           in the format: 3600:locahost:3601 (local:host:remote)
                           Supports multiple additions
-    ```
+
+## How it works
+
+![sshit demo](sshit-demo.gif "sshit demo")
