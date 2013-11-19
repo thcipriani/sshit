@@ -142,9 +142,7 @@ check_arg() {
 }
 
 parse_args () {
-    # Don't know why this is necessary, but it totally is...
-    len=$#
-    for ((i = 0 ; i < ${len} ; i++)); do
+    while [ ! -z "$1" ]; do
         case "$1" in
 
             --list|-l )
@@ -220,10 +218,6 @@ parse_args () {
                 ;;
 
             * )
-                if [ -z "$1" ]; then
-                    continue
-                fi
-
                 error "$1 not recognized as a command"
                 exit 1
                 ;;
