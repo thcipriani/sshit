@@ -1,0 +1,74 @@
+.TH sshit 1 "2014 February 20"
+
+.SH NAME
+.B sshit
+- A quick way to manage your \fI~/.ssh/config\fP
+
+.SH SYNOPSIS
+.B sshit
+[
+.I options
+]
+
+.SH DESCRIPTION
+.B sshit
+makes it easy to read of append to your
+.I ~/.ssh/config
+by exposing a vareity of easy-to-use \fIoptions\fP.
+
+.SS Options
+
+.TP
+\fB--open\fP|\fB-o\fP
+opens your \fI~/.ssh/config\fP with your \fI$EDITOR\fP. Overrides other commands
+
+.TP
+\fB--list\fP|\fB-l\fP
+dumps your \fI~/.ssh/config\fP to \fISTDOUT\fP. Overrides other commands.
+
+.TP
+\fB--name\fP|\fB-n\fP
+config name for the \fIalias\fP in the \fI~/.ssh/config\fP.
+
+.TP
+\fB--host\fP|\fB-h\fP
+hostname for the remote host in the \fI~/.ssh/config\fP
+
+.TP
+\fB--user\fP|\fB-u\fP
+(optional) username for the remote host in the \fI~/.ssh/config\fP.
+If not proivded then current user is assumed.
+
+.TP
+\fB--port\fP|\fB-p\fP
+port (optional) port 22 assumed.
+
+.TP
+\fB--identity\fP|\fB-i\fP
+Identityfile (optional)
+
+.TP
+\fB--x11\fP|\fB-x\fP
+Forward X11
+
+.TP
+\fB--local-command\fP|\fB-c\fP
+LocalCommand. Execute localcommand when connecting
+
+.TP
+\fB--local-forward\fP|\fB-f\fP
+Local forward. Format: remote:host:local (e.g., 3601:localhost:3601).
+Supports multiple additions.
+
+.TP
+\fB--remote-forward\fP|\fB-r\fP
+Remote forward. Format: local:host:remote (e.g., 3601:localhost:3601).
+Supports multiple additions.
+
+.SH FILES
+.TP
+.B sshit
+the actual script
+
+.SH SEE ALSO
+ssh(1)
