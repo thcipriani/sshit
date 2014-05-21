@@ -6,11 +6,15 @@ USAGE: $(basename $0) [OPTIONS]..
 
 OPTIONS:
               --open|-o   opens your .ssh/config file with your \$EDITOR. OVERRIDES other commands
-              --list|-l   dumps your ssh file to stdout. OVERRIDES other commands
+              --list|-l   [search] dumps your ssh file to stdout. OVERRIDES other commands
+                                   if "[search]" is specified, outputs only that block
+            --delete|-D   Delete a host from your ssh config. Not compatible with other commands
+
+            --option|-O   [key=value] OVERRIDES any values set below
 
               --name|-n   Config name (required) the alias for the ssh command
               --host|-h   Hostname (required)
-              --user|-u   Username (optional) for remote host. 
+              --user|-u   Username (optional) for remote host.
                           If not provided then current user is assumed
               --port|-p   Port (optional) port 22 assumed
           --identity|-i   Identityfile (optional)
@@ -22,11 +26,31 @@ OPTIONS:
     --remote-forward|-r   Remote forward (optional)
                           in the format: 3600:locahost:3601 (local:host:remote)
                           Supports multiple additions
+             --agent|-A   Forward Agent
 HELP
 }
 
 error () {
     printf "$(tput setab 1; tput setaf 7)[!] %b$(tput sgr0)\n" "$@" 1>&2
+}
+
+confirm () {
+  while true; do
+    read -p "$(tput setab 6; tput setaf 7)[?]$(tput sgr0) $@ Continue? [y/N] " reply
+    if [ -z $reply ]; then
+      reply="no"
+    fi
+
+    case "$reply" in
+      Y|y|YES|yes|Yes)
+        return 0
+        ;;
+      *)
+        return 1
+        ;;
+    esac
+    unset reply
+  done
 }
 
 success() {
@@ -35,12 +59,28 @@ success() {
 
 open_it() {
     $EDITOR "$config_file"
-    exit 0
 }
 
 dump_it() {
-    printf "\n%b\n\n" "$(cat $config_file)"
-    exit 0
+    if [ -n "$list_term" ]; then
+      output=$(perl -00 -ne "print if /$list_term/i" $config_file)
+      printf "\n%b\n\n" "$output"
+    else
+      printf "\n%b\n\n" "$(cat $config_file)"
+    fi
+}
+
+delete_it() {
+  if [ -z "$delete_term" ]; then
+    error "Something went wrong with the delete…cancelling"
+  fi
+  list_term="$delete_term"
+  dump_it
+  if confirm "Will be removed from $config_file"; then
+    perl -00 -i.bak -ne "print unless /$list_term/i" $config_file
+  else
+    printf "Cancelled…\n"
+  fi
 }
 
 check_host_file() {
@@ -73,8 +113,12 @@ make_host() {
 
     line="\n\nhost $name\n\thostname $host\n\tuser $user\n\tport $port\n"
 
-    if [ ! -z $xeleven ] && [ $xeleven -eq 1 ]; then
+    if [ ! -z "$xeleven" ] && [ "$xeleven" -eq 1 ]; then
         line="${line}\tForwardX11 yes\n"
+    fi
+
+    if [ ! -z "$agent" ] && [ "$agent" -eq 1 ]; then
+        line="${line}\tForwardAgent yes\n"
     fi
 
     if [ ! -z "$local_command" ]; then
@@ -124,7 +168,15 @@ make_host() {
         unset forward
     fi
 
+    if [ ! -z $keyvals ] && [ ${#keyvals[@]} -gt 0 ]; then
+      for l in "${keyvals[@]}"; do
+        option=(${l/=/ })
+        line="${line}\t${option[0]} ${option[1]}\n"
+      done
 
+      unset l
+      unset option
+    fi
 
     printf "%b\n" "$line" >> "$config_file" && success
 }
@@ -148,12 +200,24 @@ parse_args () {
             --list|-l )
                 list=1
                 shift
+                if [ -n "$1" ]; then
+                  list_term="$1"
+                  shift
+                fi
                 ;;
 
             --open|-o )
                 open=1
                 shift
                 ;;
+
+            --delete|-D )
+              delete=1
+              shift
+              check_arg "$1" "--delete"
+              delete_term="$1"
+              shift
+              ;;
 
             --name|-n )
                 shift
@@ -202,6 +266,10 @@ parse_args () {
                 shift
                 ;;
 
+            --agent|-A)
+                agent=1
+                shift
+                ;;
 
             --local-forward|-f )
                 shift
@@ -217,6 +285,13 @@ parse_args () {
                 shift
                 ;;
 
+            --option|-O )
+                shift
+                check_arg "$1" "--option"
+                keyvals=("${keyvals[@]}" "$1")
+                shift
+                ;;
+
             * )
                 error "$1 not recognized as a command"
                 exit 1
@@ -227,17 +302,24 @@ parse_args () {
 
     if [ ! -z $open ] && [ $open -eq 1 ]; then
         open_it
+        exit 0
     fi
 
     if [ ! -z $list ] && [ $list -eq 1 ]; then
         dump_it
+        exit 0
+    fi
+
+    if [ ! -z $delete ] && [ $delete -eq 1 ]; then
+        delete_it
+        exit 0
     fi
 
     make_host
 }
 
 main () {
-    if [ -z $1 ]; then
+    if [ -z $1 ] || [ "$1" = "help" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
         help
         exit 1
     fi
